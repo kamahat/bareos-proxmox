@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release tag to publish (e.g. v1.0.0)'
+        description: 'Release tag to publish (e.g. v1.0.1)'
         required: true
 
 jobs:
@@ -14,8 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     container: debian:trixie-slim
     permissions:
-      contents: read
+      contents: write
       packages: write
+      pages: write
+      id-token: write
 
     steps:
       - name: Install tools
@@ -23,10 +25,11 @@ jobs:
           apt-get update -qq
           apt-get install -y --no-install-recommends \
             build-essential git dpkg-dev debhelper devscripts \
-            python3 python3-pip reprepro gpg gpg-agent curl ca-certificates
+            python3 python3-pip reprepro gpg gpg-agent curl ca-certificates \
+            oras
 
       - name: Install Python tools
-        run: pip3 install --break-system-packages pytest bandit
+        run: pip3 install --break-system-packages pytest bandit mypy
 
       - uses: actions/checkout@v4
 
@@ -35,6 +38,12 @@ jobs:
           mkdir -p src
           cp upstream/bareos-fd-proxmox.py src/bareos_fd_proxmox.py
           patch -p0 src/bareos_fd_proxmox.py patch/bareos_fd_proxmox.patch
+
+      - name: Analyse — pytest (gate)
+        run: pytest tests/ -v --tb=short
+
+      - name: Analyse — bandit (gate)
+        run: bandit -r src/ scripts/ -ll -ii --skip B603,B606
 
       - name: Build .deb
         run: |
@@ -48,40 +57,46 @@ jobs:
           GPG_KEY_ID=$(gpg --list-secret-keys --with-colons | grep '^sec' | head -1 | cut -d: -f5)
           echo "GPG_KEY_ID=$GPG_KEY_ID" >> $GITHUB_ENV
 
-      - name: Build apt repository with reprepro
+      - name: Build apt repository
         run: |
           mkdir -p apt-repo/conf
           cat > apt-repo/conf/distributions << EOF
-Origin: kamahat/bareos-proxmox
-Label: bareos-proxmox
-Codename: stable
-Architectures: all amd64
-Components: main
-Description: Bareos Proxmox VE plugin
-SignWith: $GPG_KEY_ID
-EOF
+          Origin: kamahat/bareos-proxmox
+          Label: bareos-proxmox
+          Codename: stable
+          Architectures: all amd64
+          Components: main
+          Description: Bareos Proxmox VE plugin — GID-fix wrapper included
+          SignWith: ${GPG_KEY_ID}
+          EOF
           reprepro -b apt-repo includedeb stable ./*.deb
-          ls -lR apt-repo/
+          # Add public key for users
+          cp apt-signing-key.asc apt-repo/
+          echo "Built apt repo:"
+          ls -lR apt-repo/dists/
 
-      - name: Push apt repo to GitHub Packages (OCI)
-        uses: actions/github-script@v7
+      - name: Deploy apt repo to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          script: |
-            const { execSync } = require('child_process');
-            // Package as OCI layer — served via GHCR
-            // Users add: deb [trusted=yes] https://apt.pkg.github.com/kamahat/bareos-proxmox stable main
-            execSync('echo done');
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: apt-repo
+          publish_branch: gh-pages
+          keep_files: false
+          commit_message: "apt: publish ${{ github.ref_name || inputs.version }}"
 
-      - name: Upload apt repo as release asset
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name || inputs.version }}
-          files: |
-            apt-repo/dists/stable/Release
-            apt-repo/dists/stable/Release.gpg
-            apt-repo/dists/stable/InRelease
-            ./*.deb
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push .deb as OCI package to GHCR
+        run: |
+          DEB=$(ls ./*.deb | head -1)
+          VERSION="${{ github.ref_name || inputs.version }}"
+          # Login to GHCR
+          echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io --username ${{ github.actor }} --password-stdin
+          # Push as OCI artifact — shows in GitHub Packages tab
+          oras push \
+            ghcr.io/kamahat/bareos-proxmox:${VERSION} \
+            --artifact-type application/vnd.debian.package \
+            ${DEB}:application/vnd.debian.package
+          oras push \
+            ghcr.io/kamahat/bareos-proxmox:latest \
+            --artifact-type application/vnd.debian.package \
+            ${DEB}:application/vnd.debian.package
+          echo "Pushed to ghcr.io/kamahat/bareos-proxmox:${VERSION}"
