@@ -1,0 +1,50 @@
+name: Build Debian package
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: debian:trixie-slim
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            git dpkg-dev debhelper devscripts python3 lintian ca-certificates
+
+      - uses: actions/checkout@v4
+
+      - name: Apply patch to generate src/
+        run: |
+          mkdir -p src
+          cp upstream/bareos-fd-proxmox.py src/bareos_fd_proxmox.py
+          patch -p0 src/bareos_fd_proxmox.py patch/bareos_fd_proxmox.patch
+
+      - name: Build .deb
+        run: |
+          chmod +x scripts/vzdump-bareos debian/postinst debian/rules
+          dpkg-buildpackage -us -uc -b
+          ls -lh ../*.deb
+
+      - name: Lint
+        run: lintian --no-tag-display-limit ../*.deb || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bareos-fd-proxmox-plugin-deb
+          path: ../*.deb
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ../*.deb
+          generate_release_notes: true

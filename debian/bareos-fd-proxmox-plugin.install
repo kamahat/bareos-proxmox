@@ -1,0 +1,3 @@
+src/bareos_fd_proxmox.py  usr/lib/bareos/plugins/
+scripts/vzdump-bareos     usr/local/bin/
+debian/proxmox.conf       etc/systemd/system/bareos-filedaemon.service.d/

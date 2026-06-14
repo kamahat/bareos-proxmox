@@ -1,0 +1,9 @@
+bareos-fd-proxmox-plugin (1.0.0) unstable; urgency=medium
+
+  * Initial packaging.
+  * Plugin source from bareos/bareos@0090141 with GID-fix patch.
+  * Wrapper vzdump-bareos resets gid to 0 before exec to satisfy pmxcfs
+    SO_PEERCRED check (bareos-fd runs as gid=124/bareos).
+  * Adds mode option (default: stop) and start_new_session=True.
+
+ -- kamahat <lionel.juarez@gmail.com>  Sat, 14 Jun 2026 07:00:00 +0000

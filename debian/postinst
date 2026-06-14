@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+case "$1" in
+    configure)
+        systemctl daemon-reload || true
+        if systemctl is-active --quiet bareos-filedaemon; then
+            systemctl restart bareos-filedaemon || true
+        fi
+        ;;
+esac
+#DEBHELPER#

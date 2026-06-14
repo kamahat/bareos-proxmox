@@ -1,0 +1,27 @@
+#!/usr/bin/python3
+import signal, os, sys
+
+# Reset ALL signals to SIG_DFL
+for sig in range(1, 32):
+    try:
+        signal.signal(sig, signal.SIG_DFL)
+    except (OSError, ValueError):
+        pass
+
+# Fix GID: bareos-fd runs with gid=124 (bareos group).
+# pmxcfs validates IPC connections via SO_PEERCRED and requires gid=0.
+os.setgroups([0])
+os.setregid(0, 0)
+
+# Close extra FDs
+try:
+    maxfd = os.sysconf("SC_OPEN_MAX")
+except Exception:
+    maxfd = 1024
+for fd in range(3, maxfd):
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+
+os.execv("/usr/bin/vzdump", ["/usr/bin/vzdump"] + sys.argv[1:])

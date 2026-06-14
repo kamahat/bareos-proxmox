@@ -1,0 +1,52 @@
+name: Sync upstream source
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch upstream source
+        run: |
+          UPSTREAM_URL="https://raw.githubusercontent.com/bareos/bareos/main/core/src/plugins/filed/python/proxmox/bareos-fd-proxmox.py"
+          curl -sSfL "$UPSTREAM_URL" -o upstream/bareos-fd-proxmox.py
+
+      - name: Apply patch and rebuild src/
+        run: |
+          mkdir -p src
+          cp upstream/bareos-fd-proxmox.py src/bareos_fd_proxmox.py
+          patch -p0 src/bareos_fd_proxmox.py patch/bareos_fd_proxmox.patch || {
+            echo "::error::Patch did not apply cleanly -- manual rebase needed"
+            exit 1
+          }
+
+      - name: Check for upstream changes
+        id: changes
+        run: |
+          git diff --quiet upstream/ || echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and open PR
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          BRANCH="upstream-sync/$(date +%Y%m%d)"
+          git checkout -b "$BRANCH"
+          git add upstream/ src/
+          git commit -m "chore: sync upstream bareos-fd-proxmox $(date +%Y-%m-%d)"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "chore: upstream sync $(date +%Y-%m-%d)" \
+            --body "Automated sync from bareos/bareos main. Review patch applicability before merging." \
+            --base main --head "$BRANCH"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

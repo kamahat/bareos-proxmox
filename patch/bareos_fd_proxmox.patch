@@ -1,0 +1,43 @@
+--- upstream/bareos-fd-proxmox.py	2026-06-14 05:52:32.766040987 +0000
++++ /tmp/bareos_fd_proxmox_patched.py	2026-06-14 05:52:33.317063324 +0000
+@@ -26,6 +26,8 @@
+ """A Bareos plugin for Proxmox VE"""
+ 
+ import subprocess
++import signal
++import os as _os
+ from os import read, close, pipe, O_NONBLOCK
+ from os.path import basename
+ from fcntl import fcntl, F_SETPIPE_SZ, F_GETFL, F_SETFL
+@@ -121,6 +123,7 @@
+             "restorepath": self.make_opt(str, "/var/lib/vz/dump"),
+             "restoretodisk": self.make_opt(bool, False),
+             "pctstorage": self.make_opt(str, ""),
++            "mode": self.make_opt(str, "stop"),
+         }
+ 
+     @staticmethod
+@@ -241,13 +244,14 @@
+ 
+         guest_id = self.options.guestid
+ 
+-        vzdump_cmd = ("vzdump", f"{guest_id}", "--stdout")
++        vzdump_cmd = ("vzdump-bareos", f"{guest_id}", "--stdout", "--mode", self.options.mode)
+         bareosfd.JobMessage(bareosfd.M_INFO, f"Executing {' '.join(vzdump_cmd)}\n")
+         self.io_process = subprocess.Popen(  # pylint: disable=consider-using-with
+             vzdump_cmd,
+             stdin=subprocess.DEVNULL,
+             stdout=subprocess.PIPE,
+             stderr=self.log_pipe,
++            start_new_session=True,
+         )
+ 
+         guest_type = None
+@@ -363,6 +367,7 @@
+             stdin=subprocess.PIPE,
+             stdout=self.log_pipe,
+             stderr=self.log_pipe,
++            start_new_session=True,
+         )
+ 
+         self._despool_log(init_timeout=10000)

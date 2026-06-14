@@ -1,0 +1,18 @@
+Source: bareos-fd-proxmox-plugin
+Section: admin
+Priority: optional
+Maintainer: kamahat <lionel.juarez@gmail.com>
+Build-Depends: debhelper-compat (= 13), python3
+Standards-Version: 4.6.2
+Homepage: https://github.com/kamahat/bareos-proxmox
+Rules-Requires-Root: no
+
+Package: bareos-fd-proxmox-plugin
+Architecture: all
+Depends: ${misc:Depends}, bareos-filedaemon, bareos-filedaemon-python3-plugin, python3
+Description: Bareos plugin for Proxmox VE VM backup via vzdump
+ Provides a Bareos File Daemon plugin that backs up Proxmox VE virtual
+ machines using vzdump --stdout. Includes the Python plugin
+ (bareos_fd_proxmox), the vzdump-bareos GID-fix wrapper (required because
+ bareos-fd runs as gid=bareos while pmxcfs requires gid=0 on its IPC socket),
+ and the systemd drop-in to reload bareos-filedaemon after install.
