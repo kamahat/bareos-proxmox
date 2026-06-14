@@ -1,5 +1,5 @@
 --- upstream/bareos-fd-proxmox.py	2026-06-14 05:52:32.766040987 +0000
-+++ /tmp/bareos_fd_proxmox_patched.py	2026-06-14 05:52:33.317063324 +0000
++++ src/bareos_fd_proxmox.py	2026-06-14 06:01:53.106659488 +0000
 @@ -26,6 +26,8 @@
  """A Bareos plugin for Proxmox VE"""
  

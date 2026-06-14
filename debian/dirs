@@ -1,3 +1,3 @@
 usr/lib/bareos/plugins
-usr/local/bin
+usr/bin
 etc/systemd/system/bareos-filedaemon.service.d
