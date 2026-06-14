@@ -11,6 +11,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container: debian:trixie-slim
+    permissions:
+      contents: write
 
     steps:
       - name: Install build dependencies
