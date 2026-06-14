@@ -64,7 +64,7 @@ jobs:
           Origin: kamahat/bareos-proxmox
           Label: bareos-proxmox
           Codename: stable
-          Architectures: all amd64
+          Architectures: amd64
           Components: main
           Description: Bareos Proxmox VE plugin — GID-fix wrapper included
           SignWith: ${GPG_KEY_ID}
