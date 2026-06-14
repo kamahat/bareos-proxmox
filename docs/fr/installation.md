@@ -40,7 +40,24 @@ wget "https://github.com/kamahat/bareos-proxmox/releases/download/${LATEST}/bare
 apt install ./bareos-fd-proxmox-plugin_*.deb
 ```
 
-**Option B — Compilation depuis les sources**
+**Option B — Dépôt apt (recommandé pour les mises à jour récurrentes)**
+
+```bash
+# Importer la clé GPG
+curl -fsSL https://kamahat.github.io/bareos-proxmox/apt-signing-key.asc \
+  | gpg --dearmor > /etc/apt/keyrings/bareos-proxmox.gpg
+
+# Ajouter le dépôt
+echo "deb [signed-by=/etc/apt/keyrings/bareos-proxmox.gpg] \
+  https://kamahat.github.io/bareos-proxmox stable main" \
+  > /etc/apt/sources.list.d/bareos-proxmox.list
+
+# Installer
+apt-get update
+apt-get install bareos-fd-proxmox-plugin
+```
+
+**Option C — Compilation depuis les sources**
 
 ```bash
 git clone https://github.com/kamahat/bareos-proxmox.git

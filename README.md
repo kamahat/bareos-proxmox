@@ -7,6 +7,8 @@ without any intermediate file on disk.
 
 [![Build Debian package](https://github.com/kamahat/bareos-proxmox/actions/workflows/build-deb.yml/badge.svg)](https://github.com/kamahat/bareos-proxmox/actions/workflows/build-deb.yml)
 [![Latest release](https://img.shields.io/github/v/release/kamahat/bareos-proxmox)](https://github.com/kamahat/bareos-proxmox/releases/latest)
+[![apt repository](https://img.shields.io/badge/apt-repository-available-blue)](https://kamahat.github.io/bareos-proxmox/)
+[![GitHub Packages](https://img.shields.io/badge/GHCR-OCI%20package-blue)](https://github.com/kamahat/bareos-proxmox/pkgs/container/bareos-proxmox)
 
 ---
 
