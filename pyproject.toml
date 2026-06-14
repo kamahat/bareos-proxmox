@@ -1,0 +1,7 @@
+[tool.bandit]
+targets = ["src/bareos_fd_proxmox.py", "scripts/vzdump-bareos"]
+skips = ["B603"]   # B603 = subprocess without shell=True, intentional here
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

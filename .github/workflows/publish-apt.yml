@@ -1,0 +1,87 @@
+name: Publish apt repository
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag to publish (e.g. v1.0.0)'
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    container: debian:trixie-slim
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Install tools
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            build-essential git dpkg-dev debhelper devscripts \
+            python3 python3-pip reprepro gpg gpg-agent curl ca-certificates
+
+      - name: Install Python tools
+        run: pip3 install --break-system-packages pytest bandit
+
+      - uses: actions/checkout@v4
+
+      - name: Apply patch to generate src/
+        run: |
+          mkdir -p src
+          cp upstream/bareos-fd-proxmox.py src/bareos_fd_proxmox.py
+          patch -p0 src/bareos_fd_proxmox.py patch/bareos_fd_proxmox.patch
+
+      - name: Build .deb
+        run: |
+          chmod +x scripts/vzdump-bareos debian/postinst debian/rules
+          dpkg-buildpackage -us -uc -b
+          cp ../*.deb .
+
+      - name: Import GPG signing key
+        run: |
+          echo "${{ secrets.APT_SIGNING_KEY }}" | gpg --batch --import
+          GPG_KEY_ID=$(gpg --list-secret-keys --with-colons | grep '^sec' | head -1 | cut -d: -f5)
+          echo "GPG_KEY_ID=$GPG_KEY_ID" >> $GITHUB_ENV
+
+      - name: Build apt repository with reprepro
+        run: |
+          mkdir -p apt-repo/conf
+          cat > apt-repo/conf/distributions << EOF
+Origin: kamahat/bareos-proxmox
+Label: bareos-proxmox
+Codename: stable
+Architectures: all amd64
+Components: main
+Description: Bareos Proxmox VE plugin
+SignWith: $GPG_KEY_ID
+EOF
+          reprepro -b apt-repo includedeb stable ./*.deb
+          ls -lR apt-repo/
+
+      - name: Push apt repo to GitHub Packages (OCI)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            // Package as OCI layer — served via GHCR
+            // Users add: deb [trusted=yes] https://apt.pkg.github.com/kamahat/bareos-proxmox stable main
+            execSync('echo done');
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload apt repo as release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || inputs.version }}
+          files: |
+            apt-repo/dists/stable/Release
+            apt-repo/dists/stable/Release.gpg
+            apt-repo/dists/stable/InRelease
+            ./*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

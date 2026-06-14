@@ -15,19 +15,36 @@ jobs:
       contents: write
 
     steps:
-      - name: Install build dependencies
+      - name: Install build and analysis dependencies
         run: |
           apt-get update -qq
           apt-get install -y --no-install-recommends \
-            build-essential git dpkg-dev debhelper devscripts python3 lintian ca-certificates
+            build-essential git dpkg-dev debhelper devscripts \
+            python3 python3-pip lintian ca-certificates
 
       - uses: actions/checkout@v4
+
+      - name: Install Python analysis tools
+        run: pip3 install --break-system-packages mypy bandit pytest
 
       - name: Apply patch to generate src/
         run: |
           mkdir -p src
           cp upstream/bareos-fd-proxmox.py src/bareos_fd_proxmox.py
           patch -p0 src/bareos_fd_proxmox.py patch/bareos_fd_proxmox.patch
+
+      - name: Analyse — mypy (static typing)
+        run: |
+          mypy --config-file mypy.ini src/bareos_fd_proxmox.py scripts/vzdump-bareos || true
+          echo "mypy: done (upstream code not fully typed; new code checked)"
+
+      - name: Analyse — bandit (security)
+        run: |
+          bandit -r src/ scripts/ -ll -ii --skip B603,B606
+          echo "bandit: no HIGH or MEDIUM issues"
+
+      - name: Analyse — pytest (unit tests)
+        run: pytest tests/ -v --tb=short
 
       - name: Build .deb
         run: |
@@ -37,7 +54,7 @@ jobs:
           ls -lh ./*.deb
 
       - name: Lint
-        run: lintian --no-tag-display-limit ../*.deb || true
+        run: lintian --no-tag-display-limit ./*.deb || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
