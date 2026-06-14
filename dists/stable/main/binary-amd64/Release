@@ -1,0 +1,5 @@
+Component: main
+Origin: kamahat/bareos-proxmox
+Label: bareos-proxmox
+Architecture: amd64
+Description: Bareos Proxmox VE plugin — GID-fix wrapper included

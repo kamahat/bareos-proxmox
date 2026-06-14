@@ -1,0 +1,19 @@
+Origin: kamahat/bareos-proxmox
+Label: bareos-proxmox
+Codename: stable
+Date: Sun, 14 Jun 2026 06:40:06 UTC
+Architectures: amd64
+Components: main
+Description: Bareos Proxmox VE plugin — GID-fix wrapper included
+MD5Sum:
+ 06aa28e5b052840d8a3e50f7f5716b4a 961 main/binary-amd64/Packages
+ 429f52d5efc03ea7f0937ead29c9be0d 594 main/binary-amd64/Packages.gz
+ 18673cb866ad2a80849779c0f4e3c239 156 main/binary-amd64/Release
+SHA1:
+ e93e6e28493c11bf705d5488535aa661d45b82f5 961 main/binary-amd64/Packages
+ f0be33f875bcc0f4585acfbee13d018c1eb2aa30 594 main/binary-amd64/Packages.gz
+ b7fdee55279d2d660098999f5b5ea49dc6d5c6d6 156 main/binary-amd64/Release
+SHA256:
+ ea3306e0e8d66f504ceed7188f7a6afd5cd2bc474852e9f55e2afd805468ba74 961 main/binary-amd64/Packages
+ 12bc7c5303cae7955677497ee88acc082279a8867832224ea33fd37ac1a672c7 594 main/binary-amd64/Packages.gz
+ e084022e5256780cdd2ea8ad344431ee17402c758626c45bb33cadd98e8eadec 156 main/binary-amd64/Release

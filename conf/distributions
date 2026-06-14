@@ -1,0 +1,7 @@
+Origin: kamahat/bareos-proxmox
+Label: bareos-proxmox
+Codename: stable
+Architectures: amd64
+Components: main
+Description: Bareos Proxmox VE plugin — GID-fix wrapper included
+SignWith: 2E14D3A015907447
