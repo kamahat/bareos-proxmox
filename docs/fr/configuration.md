@@ -63,12 +63,14 @@ Client {
 
 ### FileSet
 
-`/etc/bareos/bareos-dir.d/fileset/FS-Proxmox-VM.conf` :
+Un FileSet par VM — chacun référence un `guestid` unique :
+
+`/etc/bareos/bareos-dir.d/fileset/FS-Proxmox-VM107.conf` :
 
 ```
 FileSet {
-  Name = "FS-Proxmox-VM"
-  Description = "VMs Proxmox via plugin vzdump"
+  Name = "FS-Proxmox-VM107"
+  Description = "VM 107 (jd2) via plugin vzdump"
   Include {
     Options {
       Signature = MD5
@@ -101,7 +103,7 @@ Job {
   Type = Backup
   Level = Full
   Client = pve1-fd
-  FileSet = "FS-Proxmox-VM"
+  FileSet = "FS-Proxmox-VM107"
   Storage = File
   Pool = Full
   Messages = Standard
@@ -113,11 +115,12 @@ Job {
 
 ---
 
-## Exemple complet fonctionnel
+## Exemple complet fonctionnel — deux VMs
 
-> Environnement : Director Bareos sur `192.168.20.81`, nœud Proxmox `pve1` sur
-> `192.168.20.200`, VM 107 (`jd2`), mode `stop` (VM arrêtée pendant la sauvegarde),
-> storage sur disque.
+> **Validé en production** — Director Bareos sur `192.168.20.81`, nœud Proxmox `pve1`
+> sur `192.168.20.200`, deux VMs :
+> - VM 107 `jd2` — JobId 19 & 20 : **Backup OK**, 0 erreur, ~5 min
+> - VM 117 `docker-host` — JobId 21 : **Backup OK**, 0 erreur, ~9 min, 5,75 Go transférés
 
 **1. Nœud Proxmox** (`192.168.20.200`) :
 
@@ -135,7 +138,7 @@ Client {
 systemctl restart bareos-filedaemon
 ```
 
-**2. Director** (`192.168.20.81`) :
+**2. Director** (`192.168.20.81`) — répéter le bloc FileSet + Job pour chaque VM :
 
 ```bash
 # /etc/bareos/bareos-dir.d/client/pve1-fd.conf
@@ -146,6 +149,7 @@ Client {
   Maximum Concurrent Jobs = 1
 }
 
+# ── VM 107 (jd2) ─────────────────────────────────────────────────────────
 # /etc/bareos/bareos-dir.d/fileset/FS-Proxmox-VM107.conf
 FileSet {
   Name = "FS-Proxmox-VM107"
@@ -155,30 +159,48 @@ FileSet {
   }
 }
 
-# /etc/bareos/bareos-dir.d/job/Backup-VM107.conf
+# /etc/bareos/bareos-dir.d/job/Backup-Proxmox-VM107.conf
 Job {
-  Name = "Backup-VM107"
-  Type = Backup
-  Level = Full
-  Client = pve1-fd
-  FileSet = "FS-Proxmox-VM107"
-  Storage = File
-  Pool = Full
+  Name = "Backup-Proxmox-VM107"
+  Type = Backup; Level = Full; Client = pve1-fd
+  FileSet = "FS-Proxmox-VM107"; Storage = File; Pool = Full
   Messages = Standard
   Write Bootstrap = "/var/lib/bareos/%c.bsr"
 }
 
-# Recharger le Director
-systemctl reload bareos-director
+# ── VM 117 (docker-host) ──────────────────────────────────────────────────
+# /etc/bareos/bareos-dir.d/fileset/FS-Proxmox-VM117.conf
+FileSet {
+  Name = "FS-Proxmox-VM117"
+  Include {
+    Options { Signature = MD5; Compression = LZO }
+    Plugin = "python3:module_name=bareos_fd_proxmox:guestid=117:mode=stop"
+  }
+}
+
+# /etc/bareos/bareos-dir.d/job/Backup-Proxmox-VM117.conf
+Job {
+  Name = "Backup-Proxmox-VM117"
+  Type = Backup; Level = Full; Client = pve1-fd
+  FileSet = "FS-Proxmox-VM117"; Storage = File; Pool = Full
+  Messages = Standard
+  Write Bootstrap = "/var/lib/bareos/%c.bsr"
+}
+
+# Recharger le Director (pas de redémarrage nécessaire pour les nouveaux jobs/filesets)
+echo "reload" | bconsole
 ```
 
 **3. Test de sauvegarde :**
 
 ```bash
-echo "run job=Backup-VM107 level=Full yes" | bconsole
-# Attendre ~5 minutes (mode=stop met la VM hors tension), puis :
-echo "llist jobs jobid=<N>" | bconsole
-# Attendu : jobstatus=T, joberrors=0
+# Lancer une sauvegarde et la suivre
+echo "run job=Backup-Proxmox-VM117 yes" | bconsole
+# => Job queued. JobId=N
+
+# Vérifier le résultat (remplacer N)
+echo "list jobid=N" | bconsole
+# Attendu : jobstatus=T, SD Errors=0, FD termination status=OK
 ```
 
 ---
@@ -189,6 +211,6 @@ echo "llist jobs jobid=<N>" | bconsole
 |--------|-------|----------|
 | `ipcc_send_rec: Unknown error -1` | GID non corrigé | Vérifier que `/usr/bin/vzdump-bareos` est installé et exécutable |
 | `module_name without value` | Erreur de guillemets dans le FileSet | S'assurer que la ligne Plugin utilise des guillemets doubles autour de la valeur complète |
-| `vzdump exited with code 255` | Échec IPC pmxcfs | Vérifier le fix GID ; tester manuellement `vzdump-bareos 107 --stdout --mode stop >/dev/null` |
+| `vzdump exited with code 255` | Échec IPC pmxcfs | Vérifier le fix GID ; tester manuellement `vzdump-bareos <vmid> --stdout --mode stop >/dev/null` |
 | `Failed to authenticate` | Cascade de l'erreur précédente | Corriger l'erreur primaire d'abord |
 | `Unknown option 'guest_id'` | Faute de frappe | L'option est `guestid` (sans underscore) |

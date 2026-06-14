@@ -63,12 +63,14 @@ Client {
 
 ### FileSet
 
-`/etc/bareos/bareos-dir.d/fileset/FS-Proxmox-VM.conf`:
+One FileSet per VM — each references a single `guestid`:
+
+`/etc/bareos/bareos-dir.d/fileset/FS-Proxmox-VM107.conf`:
 
 ```
 FileSet {
-  Name = "FS-Proxmox-VM"
-  Description = "Proxmox VMs via vzdump plugin"
+  Name = "FS-Proxmox-VM107"
+  Description = "VM 107 (jd2) via vzdump plugin"
   Include {
     Options {
       Signature = MD5
@@ -101,7 +103,7 @@ Job {
   Type = Backup
   Level = Full
   Client = pve1-fd
-  FileSet = "FS-Proxmox-VM"
+  FileSet = "FS-Proxmox-VM107"
   Storage = File
   Pool = Full
   Messages = Standard
@@ -113,10 +115,12 @@ Job {
 
 ---
 
-## Complete working example
+## Complete working example — two VMs
 
-> Environment: Bareos Director on `192.168.20.81`, Proxmox node `pve1` at `192.168.20.200`,
-> VM 107 (`jd2`), mode `stop` (VM powered off during backup), storage on disk.
+> **Validated in production** — Bareos Director on `192.168.20.81`, Proxmox node `pve1`
+> at `192.168.20.200`, two VMs:
+> - VM 107 `jd2` — JobId 19 & 20: **Backup OK**, 0 errors, ~5 min
+> - VM 117 `docker-host` — JobId 21: **Backup OK**, 0 errors, ~9 min, 5.75 GB transferred
 
 **1. Proxmox node** (`192.168.20.200`):
 
@@ -134,7 +138,7 @@ Client {
 systemctl restart bareos-filedaemon
 ```
 
-**2. Director** (`192.168.20.81`):
+**2. Director** (`192.168.20.81`) — repeat the FileSet + Job block for each VM:
 
 ```bash
 # /etc/bareos/bareos-dir.d/client/pve1-fd.conf
@@ -145,6 +149,7 @@ Client {
   Maximum Concurrent Jobs = 1
 }
 
+# ── VM 107 (jd2) ─────────────────────────────────────────────────────────
 # /etc/bareos/bareos-dir.d/fileset/FS-Proxmox-VM107.conf
 FileSet {
   Name = "FS-Proxmox-VM107"
@@ -154,30 +159,48 @@ FileSet {
   }
 }
 
-# /etc/bareos/bareos-dir.d/job/Backup-VM107.conf
+# /etc/bareos/bareos-dir.d/job/Backup-Proxmox-VM107.conf
 Job {
-  Name = "Backup-VM107"
-  Type = Backup
-  Level = Full
-  Client = pve1-fd
-  FileSet = "FS-Proxmox-VM107"
-  Storage = File
-  Pool = Full
+  Name = "Backup-Proxmox-VM107"
+  Type = Backup; Level = Full; Client = pve1-fd
+  FileSet = "FS-Proxmox-VM107"; Storage = File; Pool = Full
   Messages = Standard
   Write Bootstrap = "/var/lib/bareos/%c.bsr"
 }
 
-# Reload Director
-systemctl reload bareos-director
+# ── VM 117 (docker-host) ──────────────────────────────────────────────────
+# /etc/bareos/bareos-dir.d/fileset/FS-Proxmox-VM117.conf
+FileSet {
+  Name = "FS-Proxmox-VM117"
+  Include {
+    Options { Signature = MD5; Compression = LZO }
+    Plugin = "python3:module_name=bareos_fd_proxmox:guestid=117:mode=stop"
+  }
+}
+
+# /etc/bareos/bareos-dir.d/job/Backup-Proxmox-VM117.conf
+Job {
+  Name = "Backup-Proxmox-VM117"
+  Type = Backup; Level = Full; Client = pve1-fd
+  FileSet = "FS-Proxmox-VM117"; Storage = File; Pool = Full
+  Messages = Standard
+  Write Bootstrap = "/var/lib/bareos/%c.bsr"
+}
+
+# Reload Director (no restart needed for new job/fileset resources)
+echo "reload" | bconsole
 ```
 
 **3. Test run:**
 
 ```bash
-echo "run job=Backup-VM107 level=Full yes" | bconsole
-# Wait ~5 minutes (mode=stop pauses the VM), then:
-echo "llist jobs jobid=<N>" | bconsole
-# Expected: jobstatus=T, joberrors=0
+# Run a backup and follow it
+echo "run job=Backup-Proxmox-VM117 yes" | bconsole
+# => Job queued. JobId=N
+
+# Check result (replace N)
+echo "list jobid=N" | bconsole
+# Expected: jobstatus=T, SD Errors=0, FD termination status=OK
 ```
 
 ---
@@ -188,6 +211,6 @@ echo "llist jobs jobid=<N>" | bconsole
 |-------|-------|-----|
 | `ipcc_send_rec: Unknown error -1` | GID not fixed | Verify `/usr/bin/vzdump-bareos` is installed and executable |
 | `module_name without value` | Quoting error in FileSet | Ensure the Plugin line uses double quotes around the full value |
-| `vzdump exited with code 255` | pmxcfs IPC failure | Check GID fix; run `vzdump-bareos 107 --stdout --mode stop >/dev/null` manually |
+| `vzdump exited with code 255` | pmxcfs IPC failure | Check GID fix; run `vzdump-bareos <vmid> --stdout --mode stop >/dev/null` manually |
 | `Failed to authenticate` | Cascade from above | Fix the primary error first |
 | `Unknown option 'guest_id'` | Typo | Option is `guestid` (no underscore) |
