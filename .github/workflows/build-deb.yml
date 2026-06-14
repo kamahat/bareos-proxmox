@@ -17,7 +17,7 @@ jobs:
         run: |
           apt-get update -qq
           apt-get install -y --no-install-recommends \
-            git dpkg-dev debhelper devscripts python3 lintian ca-certificates
+            build-essential git dpkg-dev debhelper devscripts python3 lintian ca-certificates
 
       - uses: actions/checkout@v4
 
