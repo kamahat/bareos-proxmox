@@ -17,7 +17,7 @@ jobs:
 
       - name: Fetch upstream source
         run: |
-          UPSTREAM_URL="https://raw.githubusercontent.com/bareos/bareos/main/core/src/plugins/filed/python/proxmox/bareos-fd-proxmox.py"
+          UPSTREAM_URL="https://raw.githubusercontent.com/bareos/bareos/master/core/src/plugins/filed/python/proxmox/bareos-fd-proxmox.py"
           curl -sSfL "$UPSTREAM_URL" -o upstream/bareos-fd-proxmox.py
 
       - name: Apply patch and rebuild src/
@@ -44,9 +44,6 @@ jobs:
           git add upstream/ src/
           git commit -m "chore: sync upstream bareos-fd-proxmox $(date +%Y-%m-%d)"
           git push origin "$BRANCH"
-          gh pr create \
-            --title "chore: upstream sync $(date +%Y-%m-%d)" \
-            --body "Automated sync from bareos/bareos main. Review patch applicability before merging." \
-            --base main --head "$BRANCH"
+          gh pr create             --title "chore: upstream sync $(date +%Y-%m-%d)"             --body "Automated sync from bareos/bareos master. Review patch applicability before merging."             --base main --head "$BRANCH"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
